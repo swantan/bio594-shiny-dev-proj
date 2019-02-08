@@ -9,5 +9,7 @@ sliderTextUI <- function(id) {
 shine_ui <- fluidPage(
   checkboxInput("display", "Show Value"),
   sliderTextUI("module"),
-  h2(textOutput("value"))
+  h2(textOutput("value")),
+  downloadButton('report')
+  
 )
