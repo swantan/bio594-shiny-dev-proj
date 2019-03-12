@@ -5,6 +5,7 @@
 #' `knitr` that can be sent to the vendor.
 #'
 library(shiny)
+library(shinydashboard)
 
 source("ui.R", local = TRUE)
 source("server.R", local = TRUE)
