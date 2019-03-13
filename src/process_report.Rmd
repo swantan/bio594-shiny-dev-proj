@@ -1,7 +1,7 @@
 ---
 title: "R Notebook"
 output:
-#  html_notebook: default
+  html_notebook: default
   html_document:
     df_print: paged
   word_document: default
@@ -18,14 +18,12 @@ con = dbConnect(pgsqldrv, user="metabase", password="jw8davides0F4", dbname="pos
 
 The below code controls the date range that the analysis is performed over.
 
-```{r setup, echo=F}
+```{r setup}
 begin_date <- '2018-01-01'
 end_date <- '2018-12-31'
 ```
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+Retrieve all actual sales information (net of credits):
 
 ```{sql sales_query, connection=con, output.var="item_sales"}
 WITH sales_info AS (
@@ -43,8 +41,49 @@ WITH sales_info AS (
   WHERE (
     nst.transaction_type::text = ANY (ARRAY[
       'Cash Sale'::text,
+      'Invoice'::text
+    ])
+  ) AND (
+    nsi.type_name::text = ANY (ARRAY[
+      'Non-inventory Item'::character varying::text,
+      'Inventory Item'::character varying::text,
+      'Assembly/Bill of Materials'::character varying::text,
+      'Kit/Package'::character varying::text,
+      'Item Group'::character varying::text
+    ])
+  )
+  AND (nst.trandate >= to_date(?begin_date,'YYYY-MM-DD'))
+  AND (nst.trandate <= to_date(?end_date,'YYYY-MM-DD'))
+)
+
+SELECT
+  sales_info.item_id,
+  sales_info.trandate,
+  sales_info.qty,
+  sales_info.amount,
+  sales_info.subsidiary_id,
+  sales_info.sales_order_type_id
+FROM sales_info
+```
+
+Retrieve credit information:
+
+```{sql credit_query, connection=con, output.var="item_credits"}
+WITH sales_info AS (
+  SELECT
+    nsi.item_id,
+    nst.trandate::date AS trandate,
+    nstl.item_count * '-1'::integer::numeric AS qty,
+    nstl.net_amount * '-1'::integer::numeric AS amount,
+    nstl.subsidiary_id,
+    nst.sales_order_type_id
+  FROM
+    netsuite.transaction_lines nstl
+    LEFT JOIN netsuite.transactions nst ON nst.transaction_id = nstl.transaction_id
+    LEFT JOIN netsuite.items nsi ON nsi.item_id = nstl.item_id
+  WHERE (
+    nst.transaction_type::text = ANY (ARRAY[
       'Cash Refund'::text,
-      'Invoice'::text,
       'Credit Memo'::text
     ])
   ) AND (
@@ -70,7 +109,12 @@ SELECT
 FROM sales_info
 ```
 
-```{sql sales_query, connection=con, output.var="subsidiaries"}
+Retrieve purchase order data
+
+```{sql}
+```
+
+```{sql sales_query2, connection=con, output.var="subsidiaries"}
 SELECT
   subsidiary_id,
   name
@@ -79,6 +123,12 @@ netsuite.subsidiaries
 
 ```
 
+Data's retrieved, so it's useful to scrub some known issues. Item groups are in sales and credit data, but the actual posting transactions are against the members of these groups, so we can scrub out anything with an N/A amount.
+```{r}
+item_sales <- item_sales %>% filter(!is.na(amount))
+```
+
+It's useful to glance, at least initially, on some summary statistics to see if they make sense:
 
 
 ```{r}
@@ -86,9 +136,16 @@ summary(item_sales$amount)
 summary(item_sales$trandate)
 ```
 
+
 ```{r}
+library(lubridate)
+sales_by_day <-  item_sales %>%
+  group_by(day=floor_date(trandate, "day"), subsidiary_id) %>%
+  summarize(amount=sum(amount))
+
+sales_by_day <- merge(sales_by_day, subsidiaries, by="subsidiary_id")
+
 sales_by_month <- item_sales %>%
-  filter(!is.na(amount)) %>%
   group_by(month=floor_date(trandate, "month"), subsidiary_id) %>%
   summarize(amount=sum(amount))
 
@@ -105,16 +162,11 @@ library(lubridate)
 options(stringsAsFactors = FALSE)
 
 sales_by_month %>%
-ggplot(aes(x = month, y = amount, group=name, color=name)) +
-  geom_line() +
+ggplot() +
+  geom_line(data = sales_by_month, aes(x = month, y = amount, group=name, color=name)) +
+  geom_line(data = sales_by_day, aes(x = day, y = amount, group=name, color=name)) +
   labs(title = "Sales by Date",
      subtitle = "The data frame is sent to the plot using pipes",
      y = "Dollar Amount",
      x = "Date")
 ```
-
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
-
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
-
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
