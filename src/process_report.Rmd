@@ -1,16 +1,22 @@
 ---
 title: "R Notebook"
 output:
-  html_notebook: default
+#  html_notebook: default
   html_document:
     df_print: paged
   word_document: default
 ---
 
-```{r chunk_cool, echo=F}
+```{r load_libraries, echo=F}
 library(DBI)
 library(RPostgreSQL)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(timetk)
+```
 
+```{r set_up_db, echo=F}
 pgsqldrv <- dbDriver("PostgreSQL")
 
 con = dbConnect(pgsqldrv, user="metabase", password="jw8davides0F4", dbname="postgres", host="198.74.57.88")
@@ -18,14 +24,14 @@ con = dbConnect(pgsqldrv, user="metabase", password="jw8davides0F4", dbname="pos
 
 The below code controls the date range that the analysis is performed over.
 
-```{r setup}
+```{r set_up_params}
 begin_date <- '2018-01-01'
 end_date <- '2018-12-31'
 ```
 
 Retrieve all actual sales information (net of credits):
 
-```{sql sales_query, connection=con, output.var="item_sales"}
+```{sql sales_query, connection=con, output.var="item_sales_raw"}
 WITH sales_info AS (
   SELECT
     nsi.item_id,
@@ -68,7 +74,7 @@ FROM sales_info
 
 Retrieve credit information:
 
-```{sql credit_query, connection=con, output.var="item_credits"}
+```{sql credit_query, connection=con, output.var="item_returns_raw"}
 WITH sales_info AS (
   SELECT
     nsi.item_id,
@@ -111,10 +117,7 @@ FROM sales_info
 
 Retrieve purchase order data
 
-```{sql}
-```
-
-```{sql sales_query2, connection=con, output.var="subsidiaries"}
+```{sql subsidiary_query, connection=con, output.var="subsidiaries"}
 SELECT
   subsidiary_id,
   name
@@ -123,50 +126,76 @@ netsuite.subsidiaries
 
 ```
 
+```{r Disconnect From Database}
+dbDisconnect(con)
+```
+
 Data's retrieved, so it's useful to scrub some known issues. Item groups are in sales and credit data, but the actual posting transactions are against the members of these groups, so we can scrub out anything with an N/A amount.
-```{r}
-item_sales <- item_sales %>% filter(!is.na(amount))
+```{r Filter N/A Values}
+item_sales <- item_sales_raw %>% filter(!is.na(amount))
+item_returns <- item_returns_raw %>% filter(!is.na(amount))
 ```
 
 It's useful to glance, at least initially, on some summary statistics to see if they make sense:
 
 
-```{r}
+```{r Initial Stats}
 summary(item_sales$amount)
 summary(item_sales$trandate)
 ```
 
 
-```{r}
-library(lubridate)
+```{r Change Summary}
 sales_by_day <-  item_sales %>%
   group_by(day=floor_date(trandate, "day"), subsidiary_id) %>%
   summarize(amount=sum(amount))
 
-sales_by_day <- merge(sales_by_day, subsidiaries, by="subsidiary_id")
+sales_by_week <-  item_sales %>%
+  group_by(day=floor_date(trandate, "week"), subsidiary_id) %>%
+  summarize(amount=sum(amount))
 
 sales_by_month <- item_sales %>%
   group_by(month=floor_date(trandate, "month"), subsidiary_id) %>%
   summarize(amount=sum(amount))
 
-sales_by_month <- merge(sales_by_month, subsidiaries, by="subsidiary_id")
+sales_by_day <- as_tibble(merge(sales_by_day, subsidiaries, by="subsidiary_id"))
+sales_by_week <- as_tibble(merge(sales_by_week, subsidiaries, by="subsidiary_id"))
+sales_by_month <- as_tibble(merge(sales_by_month, subsidiaries, by="subsidiary_id"))
 ```
 
-```{r chunk_great}
-# load packages
-library(ggplot2)
-library(dplyr)
-library(lubridate)
-
+```{r Plot Sales}
 # set strings as factors to false
 options(stringsAsFactors = FALSE)
 
 sales_by_month %>%
 ggplot() +
-  geom_line(data = sales_by_month, aes(x = month, y = amount, group=name, color=name)) +
-  geom_line(data = sales_by_day, aes(x = day, y = amount, group=name, color=name)) +
-  labs(title = "Sales by Date",
+  geom_line(data = sales_by_week, aes(x = day, y = amount, group=name, color=name)) +
+  labs(title = "Sales by Week",
      subtitle = "The data frame is sent to the plot using pipes",
      y = "Dollar Amount",
      x = "Date")
+```
+
+```{r}
+sales_by_week_can <- sales_by_week %>% filter(subsidiary_id == 3)
+sales_by_week_usa <- sales_by_week %>% filter(subsidiary_id == 2)
+
+sales_by_week_can_rel <- sales_by_week_can %>%
+  mutate(amountT = sum(amount)) %>%
+  mutate(perTotal = amount / amountT)
+
+sales_by_week_usa_rel <- sales_by_week_usa %>%
+  mutate(amountT = sum(amount)) %>%
+  mutate(perTotal = amount / amountT)
+```
+
+```{r}
+ggplot() +
+  geom_line(data = sales_by_week_can_rel, aes(x = day, y = perTotal, group=name, color=name)) +
+  geom_line(data = sales_by_week_usa_rel, aes(x = day, y = perTotal, group=name, color=name)) +
+  labs(title = "Percent of Total Sales: By Week",
+#     subtitle = "The data frame is sent to the plot using pipes",
+     y = "Percent of Total",
+     x = "Date")
+
 ```
