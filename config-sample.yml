@@ -1,8 +1,6 @@
 default:
   netsuite:
-    driver: 'Postgres' 
-    server: 'mydb-test.company.com'
-    uid: 'local-account'
-    pwd: 'my-password'  
-    port: 5432
-    database: 'regional-sales'
+    host: '192.1.1.1'
+    user: 'metabase'
+    password: 'nicepassword'
+    dbname: 'postgres'
