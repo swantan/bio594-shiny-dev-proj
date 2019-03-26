@@ -17,12 +17,21 @@ library(dplyr)
 library(ggplot2)
 library(lubridate)
 library(timetk)
+library(config)
+
+config <- config::get()
 ```
 
 ```{r set_up_db, echo=F}
+
 pgsqldrv <- dbDriver("PostgreSQL")
 
-con = dbConnect(pgsqldrv, user="metabase", password="jw8davides0F4", dbname="postgres", host="198.74.57.88")
+con <- dbConnect(pgsqldrv,
+  user = config$netsuite$user,
+  password = config$netsuite$password,
+  dbname = config$netsuite$dbname,
+  host = config$netsuite$host
+)
 ```
 
 The below code controls the date range that the analysis is performed over.
@@ -161,9 +170,9 @@ sales_by_month <- item_sales %>%
   group_by(month=floor_date(trandate, "month"), subsidiary_id) %>%
   summarize(amount=sum(amount))
 
-sales_by_day <- as_tibble(merge(sales_by_day, subsidiaries, by="subsidiary_id"))
-sales_by_week <- as_tibble(merge(sales_by_week, subsidiaries, by="subsidiary_id"))
-sales_by_month <- as_tibble(merge(sales_by_month, subsidiaries, by="subsidiary_id"))
+sales_by_day <- as_tibble(base::merge(sales_by_day, subsidiaries, by="subsidiary_id"))
+sales_by_week <- as_tibble(base::merge(sales_by_week, subsidiaries, by="subsidiary_id"))
+sales_by_month <- as_tibble(base::merge(sales_by_month, subsidiaries, by="subsidiary_id"))
 ```
 
 ```{r Plot Sales}
