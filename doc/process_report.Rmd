@@ -8,8 +8,11 @@ output:
 ---
 
 ```{r load_libraries, echo=F}
+library(checkpoint)
+checkpoint("2019-03-26")
 library(DBI)
 library(RPostgreSQL)
+library(tibble)
 library(dplyr)
 library(ggplot2)
 library(lubridate)
