@@ -1,3 +1,4 @@
+library(shinyBS)
 tab_vendors <- tabItem(
   tabName = "tab_vendors",
   fluidPage(
@@ -27,16 +28,21 @@ tab_vendors <- tabItem(
         fluidRow(
           column(
             6,
-            actionButton("refresh_report", "Refresh Report")
+            actionButton("refresh_report", "Refresh Report"),
+            bsTooltip("refresh_report", "Click to refresh the vendor report with the above filters",
+                      placement = "left", trigger= "hover")
           ),
           column(
             6,
-            actionButton("download_report", "Download .DOC")
+            actionButton("download_report", "Download .DOC"),
+            bsTooltip("download_report", "Click to download a word document containing the contents of the report for sending to a vendor",
+                      placement = "left", trigger= "hover")
           )
         )
       ),
       mainPanel(
-        plotOutput("popPlot")
+        plotOutput("popPlot"),
+        tableOutput("raw_data")
       )
     )
   )
