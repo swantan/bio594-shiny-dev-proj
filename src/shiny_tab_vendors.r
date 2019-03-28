@@ -1,6 +1,8 @@
 tab_vendors <- tabItem(
   tabName = "tab_vendors",
   fluidPage(
+    tags$head(tags$script(src = "message-handler.js")),
+    
     titlePanel(h2(icon("dashboard"), "Vendor Status Report")),
     
     sidebarLayout(
@@ -11,39 +13,31 @@ tab_vendors <- tabItem(
             12,
             dateRangeInput("dates", h3("Date range")),
             selectInput(
-              "select",
+              "vendor_select",
               h3("Vendor"),
-              choices = list(
-                "Choice 1" = 1,
-                "Choice 2" = 2,
-                "Choice 3" = 3
-              ),
-              selected = 1
+              choices = list()
             ),
             selectInput(
-              "select",
+              "brand_select",
               h3("Brand"),
-              choices = list(
-                "Choice 1" = 1,
-                "Choice 2" = 2,
-                "Choice 3" = 3
-              ),
-              selected = 1
+              choices = list(),
             )
           )
         ),
         fluidRow(
           column(
             6,
-            actionButton("action", "Refresh Report")
+            actionButton("refresh_report", "Refresh Report")
           ),
           column(
             6,
-            submitButton("Download .DOC")
+            actionButton("download_report", "Download .DOC")
           )
         )
       ),
-      mainPanel("main panel")
+      mainPanel(
+        plotOutput("popPlot")
+      )
     )
   )
   
