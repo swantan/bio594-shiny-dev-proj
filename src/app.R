@@ -4,8 +4,6 @@
 #' that allows a user to readily check vendor health and produce a report with
 #' `knitr` that can be sent to the vendor.
 #'
-# library(checkpoint)
-# checkpoint("2019-03-26")
 
 library(shiny)
 library(shinydashboard)

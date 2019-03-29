@@ -204,7 +204,13 @@ shine_server <- function(input, output, session) {
     
     sales_by_week <- as_tibble(base::merge(sales_by_week, subsidiaries, by="subsidiary_id"))
     
-    output$raw_data <- renderTable(sales_by_week)
+    # output$raw_data <- renderTable(sales_by_week,
+    #   striped = TRUE,
+    #   bordered = TRUE,
+    #   colnames = TRUE,
+    # )
+    
+    output$tbltbl <- renderDT(sales_by_week)
     
     sales_plot <- sales_by_week %>%
       ggplot() +

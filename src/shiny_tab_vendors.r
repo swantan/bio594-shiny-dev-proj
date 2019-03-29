@@ -1,4 +1,7 @@
 library(shinyBS)
+library(shinycssloaders)
+library(DT)
+
 tab_vendors <- tabItem(
   tabName = "tab_vendors",
   fluidPage(
@@ -41,8 +44,9 @@ tab_vendors <- tabItem(
         )
       ),
       mainPanel(
-        plotOutput("popPlot"),
-        tableOutput("raw_data")
+        withSpinner(plotOutput("popPlot")),
+        DTOutput("tbltbl")
+        # tableOutput("raw_data")
       )
     )
   )

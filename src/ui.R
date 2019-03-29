@@ -1,5 +1,7 @@
 library(shinydashboard)
 library(shinyBS)
+library(DT)
+
 
 source("shiny_tab_supply_chain.R", local = TRUE)
 source("shiny_tab_brands.R", local = TRUE)
