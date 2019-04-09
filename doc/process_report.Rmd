@@ -200,12 +200,13 @@ sales_by_week_usa_rel <- sales_by_week_usa %>%
 ```
 
 ```{r}
-ggplot() +
+plotso <- ggplot() +
   geom_line(data = sales_by_week_can_rel, aes(x = day, y = perTotal, group=name, color=name)) +
   geom_line(data = sales_by_week_usa_rel, aes(x = day, y = perTotal, group=name, color=name)) +
   labs(title = "Percent of Total Sales: By Week",
 #     subtitle = "The data frame is sent to the plot using pipes",
      y = "Percent of Total",
      x = "Date")
+plotso
 
 ```

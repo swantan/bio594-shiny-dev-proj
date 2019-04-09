@@ -7,6 +7,7 @@ library(RPostgreSQL)
 library(dplyr)
 library(ggplot2)
 library(lubridate)
+library(plotly)
 
 get_db_pool <- function(config) {
   # create db pool per https://shiny.rstudio.com/articles/pool-basics.html
@@ -67,6 +68,8 @@ load_brands <- function(pool) {
 }
 
 shine_server <- function(input, output, session) {
+  r_values <- reactiveValues()
+  
   # load config file
   config <- config::get()
   # get a db pool
@@ -140,10 +143,24 @@ shine_server <- function(input, output, session) {
   #   }
   # )
 
+  # suppress the plot until the data's called at least once
+  r_values$first_run <- 1
+  
   observeEvent(input$refresh_report, {
+    # first run, draw the plot
+    if (r_values$first_run) {
+      output$dataPlot <- renderUI({
+        withSpinner(plotlyOutput("popPlot"))
+      })
+    }
+    
+    # shiny::validate(
+    #   need(input$date_range[1] < input$date_range[2], message = "Please select a data set")
+    # )
+    
     # showModal(modalDialog(
     #   title = "Important message",
-    #   "This is an important message!"
+    #   paste("This is an important message!",input$date_range[1]," ohhhh ",input$date_range[2])
     # ))
     
     sql <- "WITH sales_info AS (
@@ -185,18 +202,23 @@ shine_server <- function(input, output, session) {
     sales_info.subsidiary_id,
     sales_info.sales_order_type_id
     FROM sales_info"
-   # browser()
-    query <- sqlInterpolate(
+
+        query <- sqlInterpolate(
       pool,
       sql,
-      begin_date = '2019-01-01',
-      end_date = '2019-03-28',
-      brand_id = 277#input$brand_id
+      begin_date = as.character(input$date_range[1]),
+      end_date = as.character(input$date_range[2]),
+      brand_id = input$brand_select
     )
 
-    item_sales_rawsales <- dbGetQuery(pool, query)
+
+        
+        
+    item_sales_raw <- dbGetQuery(pool, query)
 
     item_sales <- item_sales_raw %>% filter(!is.na(amount))
+    
+    # browser()
     
     sales_by_week <-  item_sales %>%
       group_by(day=floor_date(trandate, "week"), subsidiary_id) %>%
@@ -220,13 +242,22 @@ shine_server <- function(input, output, session) {
            y = "$ (USD)",
            x = "Date")
     
-    output$popPlot <- renderPlot(sales_plot)
+    sale_plot <- ggplotly(sales_plot)
+    
+    output$popPlot <- renderPlotly(sales_plot)
+    
+    # mark first run over at end of computation to avoid issue with doc button
+    if (r_values$first_run) {
+      r_values$first_run <- 0
+    }
   })
 
   observeEvent(input$download_report, {
-    showModal(modalDialog(
-      title = "Important message",
-      "This is an important message!"
-    ))
+    if (r_values$first_run) {
+      showModal(modalDialog(
+        title = "Document Cannot Be Generated",
+        "Please refresh the report before attempting to download the document."
+      ))
+    }
   })
 }

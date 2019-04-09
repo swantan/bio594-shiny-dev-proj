@@ -1,10 +1,20 @@
 # Shiny Project for BIO594
 
+## Overview
+There's an assumption that you're connecting this to a PostgreSQL database which is replicating Netsuite tables to a `netsuite` schema. For example, there must be a `transactions` table located at `netsuite.transactions`.
+
+This can be run locally within RStudio but newer versions of packages may have deprecated functionality. As such, the preferred method is a versioned docker image for RStudio 3.5.3.
+
 ## Installation
-1. Clone this repository.
-2. Open the project in RStudio.
-3. Ensure that `packrat` is installed globally.
-4. At the RStudio command line, type `packrat::restore()` to pull in the packrat dependencies.
+
+Build docker
+1. Copy `config-sample.yml` to `config.yml`
+2. Edit `config.yml` with the server connections and credentials
+Run docker
+1. One image for rstudio web
+2. One image for shiny
 
 ## Usage
-Everything is relative to the internal IP of the PostgreSQL server at TT. As such, you must be on the VPN to do anything with this repository.
+
+Browse to the l
+

@@ -15,16 +15,26 @@ tab_vendors <- tabItem(
         fluidRow(
           column(
             12,
-            dateRangeInput("dates", h3("Date range")),
+            dateRangeInput(
+              "date_range",
+              h3("Report date range"),
+            ),
+            bsTooltip("date_range", "Select the vendor to filter this data by",
+                      placement = "left", trigger= "hover")
+            ,
             selectInput(
               "vendor_select",
               h3("Vendor"),
-              choices = list()
+              choices = list(),
+              bsTooltip("vendor_select", "Select the vendor to filter this data by",
+                        placement = "left", trigger= "hover")
             ),
             selectInput(
               "brand_select",
               h3("Brand"),
               choices = list(),
+              bsTooltip("brand_selectt", "Select the brand to filter this data by",
+                        placement = "left", trigger= "hover")
             )
           )
         ),
@@ -44,7 +54,7 @@ tab_vendors <- tabItem(
         )
       ),
       mainPanel(
-        withSpinner(plotOutput("popPlot")),
+        uiOutput("dataPlot"),
         DTOutput("tbltbl")
         # tableOutput("raw_data")
       )
