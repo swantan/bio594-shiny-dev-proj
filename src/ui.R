@@ -21,10 +21,11 @@ dashboard_body <- dashboardBody(
 
 dashboard_sidebar <- dashboardSidebar(
   sidebarMenu(
-    menuItem("Vendor Status Report", tabName = "tab_vendors", icon = icon("dashboard"))
+    menuItem("Vendor Summary Report", tabName = "tab_vendors", icon = icon("dashboard"))
 #    menuItem("Brand Dashboard", tabName = "tab_brands", icon = icon("dashboard"))
 #    menuItem("Supply Chain Dashboard", tabName = "tab_supply_chain", icon = icon("file-medical"))
   )
+
 )
 
 # Collect and stash the elements of the UI for render in the app.

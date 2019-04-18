@@ -8,6 +8,8 @@ library(dplyr)
 library(ggplot2)
 library(lubridate)
 library(plotly)
+library(shinycssloaders)
+
 
 get_db_pool <- function(config) {
   # create db pool per https://shiny.rstudio.com/articles/pool-basics.html
@@ -31,7 +33,7 @@ load_vendors <- function(pool) {
       vendor_id,
       companyname
     from netsuite.vendors
-    where vendor_type_id = 5
+    where vendor_type_id = 5 and vendor_id in (150492, 149864, 150469)
     order by companyname;
   "
   vendors <- dbGetQuery(pool, query)
@@ -109,44 +111,16 @@ shine_server <- function(input, output, session) {
     poolClose(pool)
   })
 
-  # display <- reactive({
-  #   input$display
-  # })
-  # num <- callModule(sliderText, "module", display)
-  # output$value <- renderText({
-  #   paste0("slider1+5: ", num())
-  # })
-
-
-
-  # output$report <- output$report <- downloadHandler(
-  #   # For PDF output, change this to "report.pdf"
-  #   filename = "report.docx",
-  #   content = function(file) {
-  #     # Copy the report file to a temporary directory before processing it, in
-  #     # case we don't have write permissions to the current working dir (which
-  #     # can happen when deployed).
-  #     tempReport <- file.path(tempdir(), "report.Rmd")
-  #     file.copy("report.Rmd", tempReport, overwrite = TRUE)
-  #
-  #     # Set up parameters to pass to Rmd document
-  #     params <- input$slider
-  #
-  #     # Knit the document, passing in the `params` list, and eval it in a
-  #     # child of the global environment (this isolates the code in the document
-  #     # from the code in this app).
-  #     rmarkdown::render(tempReport,
-  #       output_file = file,
-  #       params = params,
-  #       envir = new.env(parent = globalenv())
-  #     )
-  #   }
-  # )
-
   # suppress the plot until the data's called at least once
   r_values$first_run <- 1
   
   observeEvent(input$refresh_report, {
+    validate(
+      need(input$date_range[2] > input$date_range[1], "end date is earlier than start date"
+      )
+    )
+    
+    
     # first run, draw the plot
     if (r_values$first_run) {
       output$dataPlot <- renderUI({
@@ -192,6 +166,7 @@ shine_server <- function(input, output, session) {
       AND (nst.trandate >= to_date(?begin_date,'YYYY-MM-DD'))
       AND (nst.trandate <= to_date(?end_date,'YYYY-MM-DD'))
       AND (nsi.brand_id = ?brand_id)
+      AND (nstl.subsidiary_id = ?sub_ids)
     )
     
     SELECT
@@ -203,44 +178,63 @@ shine_server <- function(input, output, session) {
     sales_info.sales_order_type_id
     FROM sales_info"
 
-        query <- sqlInterpolate(
+    query <- sqlInterpolate(
       pool,
       sql,
       begin_date = as.character(input$date_range[1]),
       end_date = as.character(input$date_range[2]),
-      brand_id = input$brand_select
+      brand_id = input$brand_select,
+      sub_ids = input$sub_select
     )
 
 
-        
         
     item_sales_raw <- dbGetQuery(pool, query)
 
     item_sales <- item_sales_raw %>% filter(!is.na(amount))
     
-    # browser()
+    # appropriately summarize
     
-    sales_by_week <-  item_sales %>%
-      group_by(day=floor_date(trandate, "week"), subsidiary_id) %>%
-      summarize(amount=sum(amount))
+    summary_text = "by week"
+    if (input$sum_by == "m") {
+      summary_text = "by month"
+    } else if (input$sum_by == "y") {
+      summary_text = "by year"
+    }
     
-    sales_by_week <- as_tibble(base::merge(sales_by_week, subsidiaries, by="subsidiary_id"))
+    if (input$sum_by == "w") {
+      sales_summary <-  item_sales %>%
+        group_by(day=floor_date(trandate, "week"), subsidiary_id) %>%
+        summarize(amount=sum(amount))
+    } else if (input$sum_by == "m") {
+      sales_summary <-  item_sales %>%
+        group_by(day=floor_date(trandate, "month"), subsidiary_id) %>%
+        summarize(amount=sum(amount))
+    } else if (input$sum_by == "y") {
+      sales_summary <-  item_sales %>%
+        group_by(day=floor_date(trandate, "year"), subsidiary_id) %>%
+        summarize(amount=sum(amount))
+    }
+
+    sales_summary <- as_tibble(base::merge(sales_summary, subsidiaries, by="subsidiary_id"))
     
-    # output$raw_data <- renderTable(sales_by_week,
+    # output$raw_data <- renderTable(sales_summary,
     #   striped = TRUE,
     #   bordered = TRUE,
     #   colnames = TRUE,
     # )
     
-    output$tbltbl <- renderDT(sales_by_week)
+    output$tbltbl <- renderDT(sales_summary)
     
-    sales_plot <- sales_by_week %>%
+    sales_plot <- sales_summary %>%
       ggplot() +
-      geom_line(data = sales_by_week, aes(x = day, y = amount, group=name, color=name)) +
-      labs(title = "Sales by Week",
+      geom_line(data = sales_summary, aes(x = day, y = amount, group=name, color=name)) +
+      labs(title = paste("Sales",summary_text),
 #           subtitle = "The data frame is sent to the plot using pipes",
            y = "$ (USD)",
            x = "Date")
+    
+    # r_values$sales_plot <- sales_plot
     
     sale_plot <- ggplotly(sales_plot)
     
@@ -250,14 +244,33 @@ shine_server <- function(input, output, session) {
     if (r_values$first_run) {
       r_values$first_run <- 0
     }
-  })
-
-  observeEvent(input$download_report, {
-    if (r_values$first_run) {
-      showModal(modalDialog(
-        title = "Document Cannot Be Generated",
-        "Please refresh the report before attempting to download the document."
-      ))
-    }
+    
+    
+    output$download_report <- downloadHandler(
+      # For PDF output, change this to "report.pdf"
+      filename = "report.docx",
+      content = function(file) {
+        # Copy the report file to a temporary directory before processing it, in
+        # case we don't have write permissions to the current working dir (which
+        # can happen when deployed).
+        tempReport <- file.path(tempdir(), "report.Rmd")
+        file.copy("report.Rmd", tempReport, overwrite = TRUE)
+        
+        # Set up parameters to pass to Rmd document
+        params <- list(
+          sales_plot = sales_plot
+        )
+        
+        # Knit the document, passing in the `params` list, and eval it in a
+        # child of the global environment (this isolates the code in the document
+        # from the code in this app).
+        rmarkdown::render(tempReport,
+                          output_file = file,
+                          params = params,
+                          envir = new.env(parent = globalenv())
+        )
+      }
+    )
+    
   })
 }

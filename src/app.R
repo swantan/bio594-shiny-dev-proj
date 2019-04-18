@@ -16,3 +16,19 @@ shinyApp(
   ui = shine_ui,
   server = shine_server
 )
+
+
+# --- data to add
+# @TODO Top 5 categories
+# @TODO Top 10 items
+# @TODO add purchase by vendor
+# @TODO add sales orders
+
+# --- errors to correct
+# @TODO error for reversed dates
+# @TODO no data error
+# @TODO Vendor currently does nothing
+
+# --- ui enhancements
+# @TODO remove table
+
