@@ -1,0 +1,10 @@
+name: Test
+title:
+username:
+account: joshpsawyershiny
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 886150
+bundleId: 2034408
+url: https://joshpsawyershiny.shinyapps.io/Test/
+when: 1556071065.90126
