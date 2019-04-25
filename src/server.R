@@ -27,66 +27,53 @@ get_db_pool <- function(config) {
   return(pool)
 }
 
-load_vendors <- function(pool) {
-  query <- "
-    select
-      vendor_id,
-      companyname
-    from netsuite.vendors
-    where vendor_type_id = 5 and vendor_id in (150492, 149864, 150469)
-    order by companyname;
-  "
-  vendors <- dbGetQuery(pool, query)
-
-  return(vendors)
-}
-
 load_subsidiaries <- function(pool) {
-  query <- "
-    SELECT
-      subsidiary_id,
-      name
-    FROM
-      netsuite.subsidiaries
-    WHERE
-      subsidiary_id in (2,3);
-  "
-
-  subsidiaries <- dbGetQuery(pool, query) %>%
+  # query <- "
+  #   SELECT
+  #     subsidiary_id,
+  #     name
+  #   FROM
+  #     netsuite.subsidiaries
+  #   WHERE
+  #     subsidiary_id in (2,3);
+  # "
+  # 
+  # subsidiaries <- dbGetQuery(pool, query) %>%
+  #   rename(subsidiary_name = name)
+  
+  subsidiaries <- read.csv("data/subsidiaries.csv", stringsAsFactors=FALSE) %>%
     rename(subsidiary_name = name)
   
   return(subsidiaries)
 }
 
 load_brands <- function(pool) {
-  query <- "
-    SELECT
-      brand_id,
-      brand_name
-    FROM
-      netsuite.brand
-    where brand_id in (221, 179, 277)
-    ORDER BY
-      brand_name;
-  "
-
-  brands <- dbGetQuery(pool, query)
+  # query <- "
+  #   SELECT
+  #     brand_id,
+  #     brand_name
+  #   FROM
+  #     netsuite.brand
+  #   where brand_id in (221, 179, 277)
+  #   ORDER BY
+  #     brand_name;
+  # "
+  # 
+  # brands <- dbGetQuery(pool, query)
+  
+  brands <- read.csv("data/brands.csv", stringsAsFactors=FALSE)
 }
 
 shine_server <- function(input, output, session) {
   r_values <- reactiveValues()
 
   # load config file
-  config <- config::get()
+  # config <- config::get()
   # get a db pool
-  pool <- get_db_pool(config)
+  # pool <- get_db_pool(config)
   # load 'constant' data
-  vendors <- load_vendors(pool)
   subsidiaries <- load_subsidiaries(pool)
   brands <- load_brands(pool)
-
-  vendor_select <- vendors$vendor_id
-  names(vendor_select) <- vendors$companyname
 
   brand_select <- brands$brand_id
   names(brand_select) <- brands$brand_name
@@ -100,8 +87,6 @@ shine_server <- function(input, output, session) {
   na.omit.list <- function(y) {
     return(y[!sapply(y, function(x) all(is.na(x)))])
   }
-
-  vendor_select <- na.omit.list(vendor_select)
 
   # browser()
   # set up dropdown list for ui from the vendor data
@@ -117,9 +102,9 @@ shine_server <- function(input, output, session) {
     )
   })
 
-  onStop(function() {
-    poolClose(pool)
-  })
+  # onStop(function() {
+  #   poolClose(pool)
+  # })
 
   # suppress the plot until the data's called at least once
   r_values$first_run <- 1
@@ -167,75 +152,87 @@ shine_server <- function(input, output, session) {
     #   need(input$date_range[1] < input$date_range[2], message = "Please select a data set")
     # )
 
-    brand_array <- paste("(", paste(input$brand_select, collapse = ","), ")")
+    # brand_array <- paste("(", paste(input$brand_select, collapse = ","), ")")
 
-    sql <- "WITH sales_info AS (
-      SELECT
-      nsi.name as item_name,
-      nsi.brand_id,
-      nst.trandate::date AS trandate,
-      nstl.item_count * '-1'::integer::numeric AS qty,
-      nstl.net_amount * '-1'::integer::numeric AS amount,
-      nstl.subsidiary_id,
-      nst.sales_order_type_id
-      FROM
-      netsuite.transaction_lines nstl
-      LEFT JOIN netsuite.transactions nst ON nst.transaction_id = nstl.transaction_id
-      LEFT JOIN netsuite.items nsi ON nsi.item_id = nstl.item_id
-      WHERE (
-        nst.transaction_type::text = ANY (ARRAY[
-          'Cash Sale'::text,
-          'Invoice'::text
-          ])
-      ) AND (
-        nsi.type_name::text = ANY (ARRAY[
-          'Non-inventory Item'::character varying::text,
-          'Inventory Item'::character varying::text,
-          'Assembly/Bill of Materials'::character varying::text,
-          'Kit/Package'::character varying::text,
-          'Item Group'::character varying::text
-          ])
-      )
-      AND (nst.trandate >= to_date(?begin_date,'YYYY-MM-DD'))
-      AND (nst.trandate <= to_date(?end_date,'YYYY-MM-DD'))
-      AND (nsi.brand_id in ?brand_id)
-      AND (nstl.subsidiary_id = ?sub_ids)
-    )
+    # sql <- "WITH sales_info AS (
+    #   SELECT
+    #   nsi.name as item_name,
+    #   nsi.brand_id,
+    #   nst.trandate::date AS trandate,
+    #   nstl.item_count * '-1'::integer::numeric AS qty,
+    #   nstl.net_amount * '-1'::integer::numeric AS amount,
+    #   nstl.subsidiary_id,
+    #   nst.sales_order_type_id
+    #   FROM
+    #   netsuite.transaction_lines nstl
+    #   LEFT JOIN netsuite.transactions nst ON nst.transaction_id = nstl.transaction_id
+    #   LEFT JOIN netsuite.items nsi ON nsi.item_id = nstl.item_id
+    #   WHERE (
+    #     nst.transaction_type::text = ANY (ARRAY[
+    #       'Cash Sale'::text,
+    #       'Invoice'::text
+    #       ])
+    #   ) AND (
+    #     nsi.type_name::text = ANY (ARRAY[
+    #       'Non-inventory Item'::character varying::text,
+    #       'Inventory Item'::character varying::text,
+    #       'Assembly/Bill of Materials'::character varying::text,
+    #       'Kit/Package'::character varying::text,
+    #       'Item Group'::character varying::text
+    #       ])
+    #   )
+    #   AND (nst.trandate >= to_date(?begin_date,'YYYY-MM-DD'))
+    #   AND (nst.trandate <= to_date(?end_date,'YYYY-MM-DD'))
+    #   AND (nsi.brand_id in ?brand_id)
+    #   AND (nstl.subsidiary_id = ?sub_ids)
+    # )
+    # 
+    # SELECT
+    # sales_info.item_name,
+    # sales_info.brand_id,
+    # sales_info.trandate,
+    # sales_info.qty,
+    # sales_info.amount,
+    # sales_info.subsidiary_id,
+    # sales_info.sales_order_type_id
+    # FROM sales_info"
+
+    # query <- sqlInterpolate(
+    #   pool,
+    #   sql,
+    #   begin_date = as.character(input$date_range[1]),
+    #   end_date = as.character(input$date_range[2]),
+    #   brand_id = SQL(brand_array),
+    #   sub_ids = input$sub_select
+    # )
+
+
+
+    item_sales_raw <- read.csv("data/transactions.csv", stringsAsFactors=FALSE)
+
     
-    SELECT
-    sales_info.item_name,
-    sales_info.brand_id,
-    sales_info.trandate,
-    sales_info.qty,
-    sales_info.amount,
-    sales_info.subsidiary_id,
-    sales_info.sales_order_type_id
-    FROM sales_info"
-
-    query <- sqlInterpolate(
-      pool,
-      sql,
-      begin_date = as.character(input$date_range[1]),
-      end_date = as.character(input$date_range[2]),
-      brand_id = SQL(brand_array),
-      sub_ids = input$sub_select
-    )
-
-
-
-    item_sales_raw <- dbGetQuery(pool, query)
-
     item_sales <- item_sales_raw %>% filter(!is.na(amount))
 
+    # convert string dates to real dates
+    item_sales$trandate <- ymd(item_sales$trandate)
+    
+    # apply additional filtering here, since not happening during data query
+    item_sales <- item_sales %>%
+      filter(brand_id %in% input$brand_select) %>%
+      filter(subsidiary_id == input$sub_select) %>%
+      filter(trandate >= input$date_range[1] & trandate <= input$date_range[2])
+    
+    browser()
+    
     # join the brands and subsidiaries
     item_sales <- item_sales %>%
       inner_join(subsidiaries, by = "subsidiary_id") %>%
-      inner_join(brands, by = "brand_id")
+      inner_join(brands, by = "brand_id") 
     
     # ditch the brand id, subsidiary id columns
     item_sales <- select (item_sales,-c("brand_id", "subsidiary_id"))
-    
-    # appropriately summarize
+
+        # appropriately summarize
 
     summary_text <- "by week"
     if (input$sum_by == "m") {
