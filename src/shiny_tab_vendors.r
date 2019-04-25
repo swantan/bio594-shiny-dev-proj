@@ -7,7 +7,7 @@ tab_vendors <- tabItem(
   fluidPage(
     tags$head(tags$script(src = "message-handler.js")),
     
-    titlePanel(h2(icon("dashboard"), "Vendor Summary Report")),
+    titlePanel(h2(icon("dashboard"), "Sales Report")),
     
     sidebarLayout(
       position = "right",
@@ -23,20 +23,21 @@ tab_vendors <- tabItem(
               min = '2017-12-25',
               max = '2019-04-18',
             ),
-            bsTooltip("date_range", "Select the date range for this report",
-                      placement = "left", trigger= "hover")
-            ,
-            selectInput(
-              "vendor_select",
-              h3("Vendor"),
-              choices = list(),
-            ),
-            bsTooltip("vendor_select", "Select the vendor to report on",
-                      placement = "left", trigger= "hover"),
+            # bsTooltip("date_range", "Select the date range for this report",
+            #           placement = "left", trigger= "hover")
+            # ,
+            # selectInput(
+            #   "vendor_select",
+            #   h3("Vendor"),
+            #   choices = list(),
+            # ),
+            # bsTooltip("vendor_select", "Select the vendor to report on",
+            #           placement = "left", trigger= "hover"),
             selectInput(
               "brand_select",
               h3("Brand"),
               choices = list(),
+              multiple = TRUE
             ),
             bsTooltip("brand_select", "Select the brand to report on",
                       placement = "left", trigger= "hover"),
@@ -48,8 +49,8 @@ tab_vendors <- tabItem(
                 "Twisted Throttle Canada, Inc." = "3"
               ),
             ),
-            bsTooltip("sub_select", "Select the subsidiary to report",
-                      placement = "left", trigger= "hover"),
+            # bsTooltip("sub_select", "Select the subsidiary to report",
+            #           placement = "left", trigger= "hover"),
             radioButtons("sum_by", "Summarize By:",
                          c("Week" = "w",
                            "Month" = "m",

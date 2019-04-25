@@ -50,8 +50,9 @@ load_subsidiaries <- function(pool) {
       netsuite.subsidiaries;
   "
 
-  subsidiaries <- dbGetQuery(pool, query)
-
+  subsidiaries <- dbGetQuery(pool, query) %>%
+    rename(subsidiary_name = name)
+  
   return(subsidiaries)
 }
 
@@ -62,6 +63,7 @@ load_brands <- function(pool) {
       brand_name
     FROM
       netsuite.brand
+    where brand_id in (221, 179, 277)
     ORDER BY
       brand_name;
   "
@@ -71,7 +73,7 @@ load_brands <- function(pool) {
 
 shine_server <- function(input, output, session) {
   r_values <- reactiveValues()
-  
+
   # load config file
   config <- config::get()
   # get a db pool
@@ -87,6 +89,9 @@ shine_server <- function(input, output, session) {
   brand_select <- brands$brand_id
   names(brand_select) <- brands$brand_name
 
+  brands_reverse_select <- names(brand_select)
+  names(brands_reverse_select) <- brand_select
+
   na.omit.list <- function(y) {
     return(y[!sapply(y, function(x) all(is.na(x)))])
   }
@@ -95,11 +100,11 @@ shine_server <- function(input, output, session) {
 
   # browser()
   # set up dropdown list for ui from the vendor data
-  observe({
-    updateSelectInput(session, "vendor_select", "ASSET CLASS",
-      choices = vendor_select
-    )
-  })
+  # observe({
+  #   updateSelectInput(session, "vendor_select", "ASSET CLASS",
+  #     choices = vendor_select
+  #   )
+  # })
 
   observe({
     updateSelectInput(session, "brand_select", "ASSET CLASS",
@@ -113,33 +118,30 @@ shine_server <- function(input, output, session) {
 
   # suppress the plot until the data's called at least once
   r_values$first_run <- 1
-  
+
   observeEvent(input$refresh_report, {
     validate(
-      need(input$date_range[2] > input$date_range[1], "end date is earlier than start date"
-      )
+      need(input$date_range[2] > input$date_range[1], "end date is earlier than start date")
     )
-    
-    
+
+
     # first run, draw the plot
     if (r_values$first_run) {
       output$dataPlot <- renderUI({
         withSpinner(plotlyOutput("popPlot"))
       })
     }
-    
+
     # shiny::validate(
     #   need(input$date_range[1] < input$date_range[2], message = "Please select a data set")
     # )
-    
-    # showModal(modalDialog(
-    #   title = "Important message",
-    #   paste("This is an important message!",input$date_range[1]," ohhhh ",input$date_range[2])
-    # ))
-    
+
+    brand_array <- paste("(", paste(input$brand_select, collapse = ","), ")")
+
     sql <- "WITH sales_info AS (
       SELECT
       nsi.item_id,
+      nsi.brand_id,
       nst.trandate::date AS trandate,
       nstl.item_count * '-1'::integer::numeric AS qty,
       nstl.net_amount * '-1'::integer::numeric AS amount,
@@ -165,12 +167,13 @@ shine_server <- function(input, output, session) {
       )
       AND (nst.trandate >= to_date(?begin_date,'YYYY-MM-DD'))
       AND (nst.trandate <= to_date(?end_date,'YYYY-MM-DD'))
-      AND (nsi.brand_id = ?brand_id)
+      AND (nsi.brand_id in ?brand_id)
       AND (nstl.subsidiary_id = ?sub_ids)
     )
     
     SELECT
     sales_info.item_id,
+    sales_info.brand_id,
     sales_info.trandate,
     sales_info.qty,
     sales_info.amount,
@@ -183,69 +186,88 @@ shine_server <- function(input, output, session) {
       sql,
       begin_date = as.character(input$date_range[1]),
       end_date = as.character(input$date_range[2]),
-      brand_id = input$brand_select,
+      brand_id = SQL(brand_array),
       sub_ids = input$sub_select
     )
 
 
-        
+
     item_sales_raw <- dbGetQuery(pool, query)
 
     item_sales <- item_sales_raw %>% filter(!is.na(amount))
+
+    # join the brands and subsidiaries
+    item_sales <- item_sales %>%
+      inner_join(subsidiaries, by = "subsidiary_id") %>%
+      inner_join(brands, by = "brand_id")
+    
+    # ditch the brand id, subsidiary id columns
+    item_sales <- select (item_sales,-c("brand_id", "subsidiary_id"))
     
     # appropriately summarize
-    
-    summary_text = "by week"
+
+    summary_text <- "by week"
     if (input$sum_by == "m") {
-      summary_text = "by month"
+      summary_text <- "by month"
     } else if (input$sum_by == "y") {
-      summary_text = "by year"
-    }
-    
-    if (input$sum_by == "w") {
-      sales_summary <-  item_sales %>%
-        group_by(day=floor_date(trandate, "week"), subsidiary_id) %>%
-        summarize(amount=sum(amount))
-    } else if (input$sum_by == "m") {
-      sales_summary <-  item_sales %>%
-        group_by(day=floor_date(trandate, "month"), subsidiary_id) %>%
-        summarize(amount=sum(amount))
-    } else if (input$sum_by == "y") {
-      sales_summary <-  item_sales %>%
-        group_by(day=floor_date(trandate, "year"), subsidiary_id) %>%
-        summarize(amount=sum(amount))
+      summary_text <- "by year"
     }
 
-    sales_summary <- as_tibble(base::merge(sales_summary, subsidiaries, by="subsidiary_id"))
+    if (input$sum_by == "w") {
+      sales_summary <- item_sales %>%
+        group_by(day = floor_date(trandate, "week"), subsidiary_name, brand_name) %>%
+        summarize(amount = sum(amount))
+    } else if (input$sum_by == "m") {
+      sales_summary <- item_sales %>%
+        group_by(day = floor_date(trandate, "month"), subsidiary_name, brand_name) %>%
+        summarize(amount = sum(amount))
+    } else if (input$sum_by == "y") {
+      sales_summary <- item_sales %>%
+        group_by(day = floor_date(trandate, "year"), subsidiary_name, brand_name) %>%
+        summarize(amount = sum(amount))
+    }
     
+    library(formattable)
+
+    # format the currency column
+    sales_summary$amount <- currency(sales_summary$amount, digits = 0L)
+    
+
     # output$raw_data <- renderTable(sales_summary,
     #   striped = TRUE,
     #   bordered = TRUE,
     #   colnames = TRUE,
     # )
+
+    browser()
     
     output$tbltbl <- renderDT(sales_summary)
-    
+
     sales_plot <- sales_summary %>%
       ggplot() +
-      geom_line(data = sales_summary, aes(x = day, y = amount, group=name, color=name)) +
-      labs(title = paste("Sales",summary_text),
-#           subtitle = "The data frame is sent to the plot using pipes",
-           y = "$ (USD)",
-           x = "Date")
-    
+      geom_line(data = sales_summary, aes(x = day, y = amount, group = brand_name, color = brand_name)) +
+      labs(
+        title = paste("Sales", summary_text),
+        y = "$ (USD)",
+        x = "Date"
+      ) +
+      theme(legend.position = "bottom") +
+      theme(legend.title=element_blank())
+
+
     # r_values$sales_plot <- sales_plot
-    
+
     sale_plot <- ggplotly(sales_plot)
-    
+
     output$popPlot <- renderPlotly(sales_plot)
-    
+
     # mark first run over at end of computation to avoid issue with doc button
     if (r_values$first_run) {
       r_values$first_run <- 0
     }
-    
-    
+
+    # browser()
+
     output$download_report <- downloadHandler(
       # For PDF output, change this to "report.pdf"
       filename = "report.docx",
@@ -255,22 +277,24 @@ shine_server <- function(input, output, session) {
         # can happen when deployed).
         tempReport <- file.path(tempdir(), "report.Rmd")
         file.copy("report.Rmd", tempReport, overwrite = TRUE)
-        
+
         # Set up parameters to pass to Rmd document
         params <- list(
-          sales_plot = sales_plot
+          sales_plot = sales_plot,
+          start_date = input$date_range[1],
+          end_date = input$date_range[2],
+          brand_name = brands_reverse_select[input$brand_select]
         )
-        
+
         # Knit the document, passing in the `params` list, and eval it in a
         # child of the global environment (this isolates the code in the document
         # from the code in this app).
         rmarkdown::render(tempReport,
-                          output_file = file,
-                          params = params,
-                          envir = new.env(parent = globalenv())
+          output_file = file,
+          params = params,
+          envir = new.env(parent = globalenv())
         )
       }
     )
-    
   })
 }

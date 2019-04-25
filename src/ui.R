@@ -8,7 +8,7 @@ source("shiny_tab_brands.R", local = TRUE)
 source("shiny_tab_vendors.R", local = TRUE)
 
 dashboard_header <- dashboardHeader(
-  title = "Basic Dashboard"
+  title = "Twisted Reports"
 )
 
 dashboard_body <- dashboardBody(
@@ -21,7 +21,7 @@ dashboard_body <- dashboardBody(
 
 dashboard_sidebar <- dashboardSidebar(
   sidebarMenu(
-    menuItem("Vendor Summary Report", tabName = "tab_vendors", icon = icon("dashboard"))
+    menuItem("Sales Report", tabName = "tab_vendors", icon = icon("dashboard"))
 #    menuItem("Brand Dashboard", tabName = "tab_brands", icon = icon("dashboard"))
 #    menuItem("Supply Chain Dashboard", tabName = "tab_supply_chain", icon = icon("file-medical"))
   )

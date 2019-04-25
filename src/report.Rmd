@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Vendor Sales Report"
 output:
 #  html_notebook: default
   # html_document:
@@ -7,6 +7,9 @@ output:
   word_document: default
 params:
   sales_plot: NA
+  start_date: NA
+  end_date: NA
+  brand_name: NA
 ---
 
 ```{r load_libraries, echo=F}
@@ -22,8 +25,10 @@ library(config)
 # config <- config::get()
 ```
 
-Hello!
+The following sales report is for `r params$brand_name` from `r params$start_date` to `r params$end_date`. It was generated on `r Sys.Date()`.
 
-```{r}
+# Sales Report
+
+```{r, echo=F}
 params$sales_plot
 ```
