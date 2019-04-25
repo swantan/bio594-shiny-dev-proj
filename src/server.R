@@ -47,7 +47,9 @@ load_subsidiaries <- function(pool) {
       subsidiary_id,
       name
     FROM
-      netsuite.subsidiaries;
+      netsuite.subsidiaries
+    WHERE
+      subsidiary_id in (2,3);
   "
 
   subsidiaries <- dbGetQuery(pool, query) %>%
@@ -91,6 +93,9 @@ shine_server <- function(input, output, session) {
 
   brands_reverse_select <- names(brand_select)
   names(brands_reverse_select) <- brand_select
+  
+  sub_select <- subsidiaries$subsidiary_id
+  names(sub_select) <- subsidiaries$subsidiary_name
 
   na.omit.list <- function(y) {
     return(y[!sapply(y, function(x) all(is.na(x)))])
@@ -100,11 +105,11 @@ shine_server <- function(input, output, session) {
 
   # browser()
   # set up dropdown list for ui from the vendor data
-  # observe({
-  #   updateSelectInput(session, "vendor_select", "ASSET CLASS",
-  #     choices = vendor_select
-  #   )
-  # })
+  observe({
+    updateSelectInput(session, "sub_select", "ASSET CLASS",
+      choices = sub_select
+    )
+  })
 
   observe({
     updateSelectInput(session, "brand_select", "ASSET CLASS",
@@ -121,9 +126,10 @@ shine_server <- function(input, output, session) {
 
   observeEvent(input$refresh_report, {
     validate(
-      need(input$date_range[2] > input$date_range[1], "end date is earlier than start date")
+      need(input$date_range[2] > input$date_range[1], "End date cannot be earlier than start date"),
+      need(input$brand_select != "", "Please select a brand (or more)")
+      
     )
-
 
     # first run, draw the plot
     if (r_values$first_run) {

@@ -44,10 +44,7 @@ tab_vendors <- tabItem(
             selectInput(
               "sub_select",
               h3("Subsidiary"),
-              choices = list(
-                "Twisted Throttle, LLC" = "2",
-                "Twisted Throttle Canada, Inc." = "3"
-              ),
+              choices = list(),
             ),
             # bsTooltip("sub_select", "Select the subsidiary to report",
             #           placement = "left", trigger= "hover"),
