@@ -1,5 +1,5 @@
 ---
-title: "Vendor Sales Report"
+title: "Sales Report"
 output:
 #  html_notebook: default
   # html_document:
@@ -10,6 +10,7 @@ params:
   start_date: NA
   end_date: NA
   brand_name: NA
+  top_items: NA
 ---
 
 ```{r load_libraries, echo=F}
@@ -21,6 +22,7 @@ library(ggplot2)
 library(lubridate)
 library(timetk)
 library(config)
+library(knitr)
 
 # config <- config::get()
 ```
@@ -31,4 +33,9 @@ The following sales report is for `r params$brand_name` from `r params$start_dat
 
 ```{r, echo=F}
 params$sales_plot
+```
+
+Over the reporting period, these are the top 20 items sold by quantity for the selected brands.
+```{r, echo=F}
+kable(params$top_items)
 ```

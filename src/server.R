@@ -124,6 +124,31 @@ shine_server <- function(input, output, session) {
   # suppress the plot until the data's called at least once
   r_values$first_run <- 1
 
+  observeEvent(input$about_app, {
+    showModal(modalDialog(
+      title = "About This App",
+      h3("App Usage"),
+      p("To use this app, choose a date range, one to three brands
+        to report on and a summary function. The app will then generate
+        plots for those brands for comparison as well as the top 20 overall
+        items sold in that time period. All numbers are in USD."),
+      p("When you're happy with the output, you can click the download report
+        button and get a word document with some pre-generated text in it and the
+        data that you just displayed."),
+      h3("Intended Audience"),
+      p("Admittedly, this app is a little unusual. The intended audience is
+        specifically members of one company that have issues when it comes to quickly
+        and reliably producing reports and disseminating them to other staff members
+        or companies."),
+      h3("About The Code"),
+      p("If you look at the main branch of the linked repository, you'll see that this
+        app actually uses pool to query a database. That's _not_ happening in this version
+        of the app, as there was no safe way to bypass the vpn and not publish
+        the credentials. Instead, you're getting a snapshot of data to play with for a
+        limited number of brands.")
+    ))
+  })
+  
   observeEvent(input$refresh_report, {
     validate(
       need(input$date_range[2] > input$date_range[1], "End date cannot be earlier than start date"),
@@ -146,7 +171,7 @@ shine_server <- function(input, output, session) {
 
     sql <- "WITH sales_info AS (
       SELECT
-      nsi.item_id,
+      nsi.name as item_name,
       nsi.brand_id,
       nst.trandate::date AS trandate,
       nstl.item_count * '-1'::integer::numeric AS qty,
@@ -178,7 +203,7 @@ shine_server <- function(input, output, session) {
     )
     
     SELECT
-    sales_info.item_id,
+    sales_info.item_name,
     sales_info.brand_id,
     sales_info.trandate,
     sales_info.qty,
@@ -223,15 +248,30 @@ shine_server <- function(input, output, session) {
       sales_summary <- item_sales %>%
         group_by(day = floor_date(trandate, "week"), subsidiary_name, brand_name) %>%
         summarize(amount = sum(amount))
+      item_sales_summary <- item_sales %>%
+        group_by(subsidiary_name, brand_name, item_name) %>%
+        summarize(qty = sum(qty))
     } else if (input$sum_by == "m") {
       sales_summary <- item_sales %>%
         group_by(day = floor_date(trandate, "month"), subsidiary_name, brand_name) %>%
         summarize(amount = sum(amount))
+      item_sales_summary <- item_sales %>%
+        group_by(subsidiary_name, brand_name, item_name) %>%
+        summarize(qty = sum(qty))
     } else if (input$sum_by == "y") {
       sales_summary <- item_sales %>%
         group_by(day = floor_date(trandate, "year"), subsidiary_name, brand_name) %>%
         summarize(amount = sum(amount))
+      item_sales_summary <- item_sales %>%
+        group_by(subsidiary_name, brand_name, item_name) %>%
+        summarize(qty = sum(qty))
     }
+    
+    item_sales_summary <- item_sales_summary %>% arrange(desc(qty))
+    
+    top_items_summary <- head(item_sales_summary,20)
+    
+    # browser()
     
     library(formattable)
 
@@ -245,9 +285,7 @@ shine_server <- function(input, output, session) {
     #   colnames = TRUE,
     # )
 
-    browser()
-    
-    output$tbltbl <- renderDT(sales_summary)
+    output$tbltbl <- renderDT(top_items_summary)
 
     sales_plot <- sales_summary %>%
       ggplot() +
@@ -289,7 +327,8 @@ shine_server <- function(input, output, session) {
           sales_plot = sales_plot,
           start_date = input$date_range[1],
           end_date = input$date_range[2],
-          brand_name = brands_reverse_select[input$brand_select]
+          brand_name = brands_reverse_select[input$brand_select],
+          top_items = top_items_summary
         )
 
         # Knit the document, passing in the `params` list, and eval it in a

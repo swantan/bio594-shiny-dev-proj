@@ -26,20 +26,25 @@ dashboard_sidebar <- dashboardSidebar(
     #    menuItem("Supply Chain Dashboard", tabName = "tab_supply_chain", icon = icon("file-medical"))
   ),
   fluidRow(
-    column(2, offset=2,
+    column(
+      12, class="text-center",
       br(),
       br(),
       br(),
       br(),
       actionButton(
+        inputId = "about_app", label = "About App",
+        icon = icon("info-circle")
+      ),
+      actionButton(
         inputId = "ab1", label = "Get the code!",
         icon = icon("github"),
         onclick = "window.open('https://github.com/joshpsawyer/bio594-shiny-dev-proj', '_blank')"
-      )
+      ),
+      tags$style(type='text/css', "#about_app { margin: 5px auto;} #ab1 { margin: 5px auto;}")
     )
   )
 )
-
 # Collect and stash the elements of the UI for render in the app.
 shine_ui <- dashboardPage(
   dashboard_header,
